@@ -595,12 +595,12 @@ function handlePressedDownKeys() {
   }
 
   if (pwgl.pressedKeys[37]) {
-    pwgl.orbitTime += 10;
+    pwgl.orbitTime += 20;
     console.log("Slow down");
   }
 
   if (pwgl.pressedKeys[39]) {
-    pwgl.orbitTime -= 10;
+    pwgl.orbitTime -= 20;
     console.log("Speed up");
   }
 }
@@ -671,6 +671,7 @@ function wheelHandler(ev) {
 function degreesToRadian(degrees) {
   return degrees * Math.PI / 180
 }
+
 </script>
 
 </head>
