@@ -221,10 +221,89 @@ function popModelViewMatrix() {
   pwgl.modelViewMatrix = pwgl.modelViewMatrixStack.pop();
 }
 
-        // Add setupSphereBuffer function here (may require triangle buffer function)
+  
+function setupEarthBuffers() {
+  var earthVertexPosition = [];
+  var earthVertexIndices = [];
+  var earthTextureCoordinates = [];
+  var earthVertexNormals = [];
 
-function setupCubeBuffers() {
-  var cubeVertexPosition = [
+  var radius = 2;
+  var latSlices = 30
+  var longSegments = 30
+
+  /***************************/
+
+  for(var slice=0; slice <= latSlices; slice++) {
+    var theta = slice * 2 * Math.PI / longSegments;
+    var sinTheta = Math.sin(theta);
+    var cosTheta = Math.cos(theta);
+
+    for (var segment=0; segment <= longSegments; segment++) {
+      var phi = segment * 2 * Math.PI / longSegments;
+      var sinPhi = Math.sin(phi);
+      var cosPhi = Math.cos(phi);
+
+      var x = sinPhi * sinTheta;
+      var y = cosTheta;
+      var z = cosPhi * sinTheta;
+      var u = 1 - (segment / longSegments);
+      var v = 1 - (slice / latSlices);
+
+      earthVertexNormals.push(x);
+      earthVertexNormals.push(y);
+      earthVertexNormals.push(z);
+      earthTextureCoordinates.push(u);
+      earthTextureCoordinates.push(v);
+      earthVertexPosition.push(radius * x);
+      earthVertexPosition.push(radius * y);
+      earthVertexPosition.push(radius * z);
+    }
+  }
+
+  for (var slice; slice < latSlices; slice++) {
+    for (var segment; segment < longSegments; segment++) {
+      var first = (slice * (longSegments + 1)) + segment;
+      var second = first + longSegments + 1;
+      earthVertexIndices.push(first);
+      earthVertexIndices.push(second);
+      earthVertexIndices.push(first + 1);
+
+      earthVertexIndices.push(second);
+      earthVertexIndices.push(second + 1);
+      earthVertexIndices.push(first + 1);
+    }
+  }
+
+  pwgl.earthVertexPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthVertexPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexPosition), gl.STATIC_DRAW);
+  pwgl.EARTH_VERTEX_POS_BUF_ITEM_SIZE = 3
+  pwgl.EARTH_VERTEX_POS_BUF_NUM_ITEM = earthVertexPosition.length / 3;
+
+  pwgl.earthVertexIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.earthVertexIndexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexIndices), gl.STATIC_DRAW);
+  pwgl.EARTH_VERTEX_INDEX_BUF_ITEM_SIZE = 1
+  pwgl.EARTH_VERTEX_INDEX_BUF_NUM_ITEM = earthVertexIndices.length;
+
+  pwgl.earthTextureCoordinateBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthTextureCoordinateBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthTextureCoordinates), gl.STATIC_DRAW);
+  pwgl.EARTH_VERTEX_TEX_COORD_BUF_ITEM_SIZE = 2;
+  pwgl.EARTH_VERTEX_TEX_COORD_BUF_NUM_ITEM = earthTextureCoordinates.length / 2;
+
+  pwgl.earthVertexNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthVertexNormalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexNormals), gl.STATIC_DRAW);
+  pwgl.EARTH_VERTEX_NORMAL_BUF_ITEM_SIZE = 3;
+  pwgl.EARTH_VERTEX_NORMAL_BUF_NUM_ITEM = earthVertexNormals / 3;
+
+}
+
+
+function setupSatBuffers() {
+  var satVertexPosition = [
     // Front face
      1.0,  1.0,  1.0, //v0
     -1.0,  1.0,  1.0, //v1
@@ -257,8 +336,8 @@ function setupCubeBuffers() {
     -1.0, -1.0,  1.0, //v23
      ];
 
-    // Defines each face of cube as two triangles
-    var cubeVertexIndices = [
+    // Defines each face of satellite (a cube) as two triangles
+    var satVertexIndices = [
       0,  1,    2,  0,    2,  3,  // Front face
       4,  6,    5,  4,    7,  6,  // Back face
       8,  9,    10, 8,    10, 11, // Left face
@@ -267,7 +346,7 @@ function setupCubeBuffers() {
       20, 22,   21, 20,   23, 22  // Bottom face
       ];
 
-    var textureCoordinates = [
+    var satTextureCoordinates = [
       //Front face
       0.0, 0.0, //v0
       1.0, 0.0, //v1
@@ -300,7 +379,7 @@ function setupCubeBuffers() {
       0.0, 0.0, //v2
       ];
 
-    var cubeVertexNormals = [
+    var satVertexNormals = [
        // Front face
        0.0,  0.0,  1.0, //v0
        0.0,  0.0,  1.0, //v1
@@ -333,47 +412,51 @@ function setupCubeBuffers() {
        0.0, -1.0,  0.0, //v2
       ];
 
-  pwgl.cubeVertexPositionBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexPositionBuffer);
+  // Setup up buffer with positions
+  pwgl.satVertexPositionBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexPositionBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(satVertexPosition), gl.STATIC_DRAW);
+  pwgl.SAT_VERTEX_POS_BUF_ITEM_SIZE = 3;
+  pwgl.SAT_VERTEX_POS_BUF_NUM_SIZE = 24;
 
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertexPosition), gl.STATIC_DRAW);
-  pwgl.CUBE_VERTEX_POS_BUF_ITEM_SIZE = 3;
-  pwgl.CUBE_VERTEX_POS_BUF_NUM_ITEMS = 24;
-
-  // Setup buffer with index
-  pwgl.cubeVertexIndexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.cubeVertexIndexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
-  pwgl.CUBE_VERTEX_INDEX_BUF_ITEM_SIZE = 1;
-  pwgl.CUBE_VERTEX_INDEX_BUF_NUM_ITEMS = 36;
+  // Setup buffer with indices
+  pwgl.satVertexIndexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.satVertexIndexBuffer);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(satVertexIndices), gl.STATIC_DRAW);
+  pwgl.SAT_VERTEX_INDEX_BUF_ITEM_SIZE = 1;
+  pwgl.SAT_VERTEX_INDEX_BUF_NUM_SIZE = 36;
 
   // Setup buffer with texture coordinates
-  pwgl.cubeVertexTextureCoordinateBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexTextureCoordinateBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoordinates),gl.STATIC_DRAW);
-  pwgl.CUBE_VERTEX_TEX_COORD_BUF_ITEM_SIZE = 2;
-  pwgl.CUBE_VERTEX_TEX_COORD_BUF_NUM_ITEMS = 24;
+  pwgl.satVertexTextureCoordinateBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexTextureCoordinateBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(satTextureCoordinates),gl.STATIC_DRAW);
+  pwgl.SAT_VERTEX_TEX_COORD_BUF_ITEM_SIZE = 2;
+  pwgl.SAT_VERTEX_TEX_COORD_BUF_NUM_SIZE = 24;
 
   // Specify normals to be able to do lighting calculations
-  pwgl.cubeVertexNormalBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexNormalBuffer);
-
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(cubeVertexNormals), gl.STATIC_DRAW);
-  pwgl.CUBE_VERTEX_NORMAL_BUF_ITEM_SIZE = 3;
-  pwgl.CUBE_VERTEX_NORMAL_BUF_NUM_ITEMS = 24;
+  pwgl.satVertexNormalBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexNormalBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(satVertexNormals), gl.STATIC_DRAW);
+  pwgl.SAT_VERTEX_NORMAL_BUF_ITEM_SIZE = 3;
+  pwgl.SAT_VERTEX_NORMAL_BUF_NUM_ITEMS = 24;
 }
 
 function setupTextures() {
 
-  pwgl.boxTexture = {}
+  pwgl.satTexture = {}
 
-  // Texture for the box - light
-  pwgl.boxTexture['light'] = gl.createTexture();
-  loadImageForTexture("img/sat-light.jpg", pwgl.boxTexture['light']);
+  // Texture for the satellite - light
+  pwgl.satTexture['light'] = gl.createTexture();
+  loadImageForTexture("img/sat-light.jpg", pwgl.satTexture['light']);
 
-  // Texture for the box
-  pwgl.boxTexture['dark'] = gl.createTexture();
-  loadImageForTexture("img/sat-dark.jpg", pwgl.boxTexture['dark']);
+  // Texture for the satellite - dark side
+  pwgl.satTexture['dark'] = gl.createTexture();
+  loadImageForTexture("img/sat-dark.jpg", pwgl.satTexture['dark']);
+
+  // Texture for Earth (sphere)
+  pwgl.earthTexture = gl.createTexture();
+  loadImageForTexture("img/earth.jpg", pwgl.earthTexture);
+
 }
 
 
@@ -407,8 +490,8 @@ function textureFinishedLoading(image, texture) {
 
 
 function setupBuffers() {
-  //setupFloorBuffers();
-  setupCubeBuffers();
+  setupEarthBuffers();
+  setupSatBuffers();
 }
 
 
@@ -439,30 +522,63 @@ function uploadProjectionMatrixToShader() {
   gl.uniformMatrix4fv(pwgl.uniformProjMatrixLoc, false, pwgl.projectionMatrix);
 }
 
-        // Function to draw earth here
+
+function drawEarth(texture) {
+
+/*  gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, pwgl.earthVertexPositionBuffer);
+    gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, moonVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexTextureCoordBuffer);
+    gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, moonVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, moonVertexNormalBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute, moonVertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, moonVertexIndexBuffer);
+    setMatrixUniforms();
+    gl.drawElements(gl.TRIANGLES, moonVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    */
+
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  //gl.uniform1i(pwgl.uniformSamplerLoc,0);
+    
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthVertexPositionBuffer);
+  gl.vertexAttribPointer(pwgl.vertexPositionAttributeLoc, pwgl.EARTH_VERTEX_POS_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthVertexNormalBuffer);
+  gl.vertexAttribPointer(pwgl.vertexNormalAttributeLoc, pwgl.EARTH_VERTEX_NORMAL_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earthTextureCoordinateBuffer, pwgl.EARTH_VERTEX_TEX_COORD_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0)
+  gl.vertexAttribPointer(pwgl.vertexTextureAttributeLoc, pwgl.EARTH_VERTEX_TEX_COORD_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.earthVertexIndexBuffer);
+  gl.drawElements(gl.TRIANGLES, pwgl.EARTH_VERTEX_INDEX_BUF_NUM_ITEM, gl.UNSIGNED_SHORT, 0);
+}
+
 
 function drawSatellite(textures) {
   // Bind position buffer
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexPositionBuffer);
-  gl.vertexAttribPointer(pwgl.vertexPositionAttributeLoc, pwgl.CUBE_VERTEX_POS_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexPositionBuffer);
+  gl.vertexAttribPointer(pwgl.vertexPositionAttributeLoc, pwgl.SAT_VERTEX_POS_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
 
   // Bind normal buffer
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexNormalBuffer);
-  gl.vertexAttribPointer(pwgl.vertexNormalAttributeLoc, pwgl.CUBE_VERTEX_NORMAL_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexNormalBuffer);
+  gl.vertexAttribPointer(pwgl.vertexNormalAttributeLoc, pwgl.SAT_VERTEX_NORMAL_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
 
   // bind texture coordinate buffer
-  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.cubeVertexTextureCoordinateBuffer);
-  gl.vertexAttribPointer(pwgl.vertexTextureAttributeLoc, pwgl.CUBE_VERTEX_TEX_COORD_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.satVertexTextureCoordinateBuffer);
+  gl.vertexAttribPointer(pwgl.vertexTextureAttributeLoc, pwgl.SAT_VERTEX_TEX_COORD_BUF_ITEM_SIZE, gl.FLOAT, false, 0, 0);
   gl.activeTexture(gl.TEXTURE0);
 
-  // Bind index buffer and draw cube
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.cubeVertexIndexBuffer);
+  // Bind index buffer and draw satellite
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.satVertexIndexBuffer);
 
-  // Bind index buffer and draw cube
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.cubeVertexIndexBuffer);
-
-
-  // Bind 'light' texture (gold) to all faces except one of satellite
+  // Bind 'light' texture (gold) to all, except one, faces of satellite
   // Each face takes 6 vertices (two triangles make up each face) and 6 faces for cube 
   gl.bindTexture(gl.TEXTURE_2D, textures['light']);
   gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -508,13 +624,26 @@ function draw() {
   gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+  // Draw/Update Earth
+  pushModelViewMatrix();
+  mat4.rotateY(pwgl.modelViewMatrix, pwgl.rotation, pwgl.modelViewMatrix);
+  uploadModelViewMatrixToShader();
+  uploadNormalMatrixToShader();
+  drawEarth(pwgl.earthTexture);
+  popModelViewMatrix();
+
+  pwgl.rotation += Math.PI / 700;
+  if (pwgl.rotation > 2 * Math.PI) {
+    pwgl.rotation = 0;
+  }
+
   pushModelViewMatrix();
   mat4.translate(pwgl.modelViewMatrix, [pwgl.x, pwgl.y, pwgl.z], pwgl.modelViewMatrix);
   mat4.rotateY(pwgl.modelViewMatrix, (Math.PI - pwgl.angle), pwgl.modelViewMatrix);
-  mat4.scale(pwgl.modelViewMatrix, [0.15,0.15,0.15], pwgl.modelViewMatrix);
+  mat4.scale(pwgl.modelViewMatrix, [0.2,0.2,0.2], pwgl.modelViewMatrix);
   uploadModelViewMatrixToShader();
   uploadNormalMatrixToShader();
-  drawSatellite(pwgl.boxTexture);
+  drawSatellite(pwgl.satTexture);
   popModelViewMatrix();
 
   pwgl.angle += (currentTime - pwgl.previousFrameTimeStamp) / pwgl.orbitTime % (2 * Math.PI);
@@ -522,6 +651,7 @@ function draw() {
   pwgl.z = Math.sin(pwgl.angle) * pwgl.circleRadius;
 
   pwgl.previousFrameTimeStamp = currentTime;
+
 }
 
 function handleContextLost(event) {
@@ -552,12 +682,13 @@ function init() {
   pwgl.minRadius = 6.0
   pwgl.angle = 0;
   pwgl.orbitTime = 1500;
+  pwgl.rotation = 0;
 
   // Initialize some variables related to the animation
   pwgl.animationStartTime = undefined;
   pwgl.previousFrameTimeStamp = Date.now();
 
-  mat4.perspective(60, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+  mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pwgl.projectionMatrix);
   mat4.identity(pwgl.modelViewMatrix);
   mat4.lookAt([0, 0, 15],[0, 0, 0], [0, 1, 0], pwgl.modelViewMatrix);
 }
@@ -669,7 +800,7 @@ function wheelHandler(ev) {
 
 
 function degreesToRadian(degrees) {
-  return degrees * Math.PI / 180
+  return degrees * Math.PI / 180;
 }
 
 </script>
