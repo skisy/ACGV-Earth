@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>ACGV Coursework - Earth and Satellite</title>
+        <script id="shader-vs" type="x-shader/x-vertex">
+            attribute vec3 aVertexPosition;
+            attribute vec3 aVertexNormal;
+            attribute vec2 aTextureCoordinates;
+
+            uniform mat4 uMVMatrix;
+            uniform mat4 uPMatrix;
+            uniform mat3 uNMatrix;
+
+            varying vec2 vTextureCoordinates;
+            varying vec3 vNormalEye;
+            varying vec3 vPositionEye3;
+
+            void main() {
+                // Get vertex position in eye coordinates and send to the fragment shader
+                vec4 vertexPositionEye4 = uMVMatrix * vec4(aVertexPosition, 1.0);
+                vPositionEye3 = vertexPositionEye4.xyz / vertexPositionEye4.w;
+                
+                // Transform the normal to eye coordinates and send to fragment shader
+                vNormalEye = normalize(uNMatrix * aVertexNormal);
+                
+                // Transform the geometry
+                gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+                vTextureCoordinates = aTextureCoordinates;
+            }         
+        </script> 
+
+        <script id="shader-fs" type="x-shader/x-fragment">
+            precision mediump float;
+
+            varying vec2 vTextureCoordinates;
+            varying vec3 vNormalEye;
+            varying vec3 vPositionEye3;
+
+            uniform vec3 uAmbientLightColor;
+            uniform vec3 uDiffuseLightColor;
+            uniform vec3 uSpecularLightColor;
+            uniform vec3 uLightPosition;
+            //uniform vec3 uSpotDirection;
+            uniform sampler2D uSampler;
+
+            const float shininess = 42.0;
+            //const float spotExponent = 40.0;
+            // cutoff angle of spot light
+            //const float spotCosCutoff = 0.97; // corresponds to 14 degrees
+
+            vec3 lightWeighting = vec3(0.0, 0.0, 0.0);
+
+            void main() {
+                // Calculate the vector (L) to the light source. 
+                vec3 vectorToLightSource = normalize(uLightPosition - vPositionEye3);
+
+                // Calculate N dot L for diffuse lighting
+                float diffuseLightWeighting = max(dot(vNormalEye, vectorToLightSource), 0.0);
+
+                // Calculate the reflection vector (R) needed for specular light
+                vec3 reflectionVector = normalize(reflect(-vectorToLightSource,vNormalEye));
+
+                // Calculate view vector (V) in eye coordinates as (0.0, 0.0, 0.0) - vPositionEye3
+                vec3 viewVectorEye = -normalize(vPositionEye3);
+                float rdotv = max(dot(reflectionVector, viewVectorEye), 0.0);
+                float specularLightWeighting = pow(rdotv, shininess);
+
+                // Calculate overal light weighting combining diffuse, specular and ambient light
+                lightWeighting = uDiffuseLightColor * diffuseLightWeighting + uSpecularLightColor * specularLightWeighting + uAmbientLightColor;
+
+
+                vec4 texelColor = texture2D(uSampler, vTextureCoordinates);
+
+                // Adjust appropriately the texel color using light weighting to calculate final colour
+                gl_FragColor = vec4(lightWeighting.rgb * texelColor.rgb, texelColor.a);
+
+
+                // Calculate the intensity of spot light in the direction of vectorToLightSource.
+                /*float spotEffect = dot(normalize(uSpotDirection), normalize(-vectorToLightSource));
+
+                // Check that we are inside the spot light cone
+                if (spotEffect > spotCosCutoff) {
+                    spotEffect = pow(spotEffect, spotExponent);*/
+                
+
+                //lightWeighting = spotEffect * uDiffuseLightColor * diffuseLightWeighting + spotEffect * uSpecularLightColor * specularLightWeighting;
+                }
+              } 
+        </script>
+
+        <script type="text/javascript">
+            // Set up global variables
+            var gl;
+            var pwgl = {}; // WebGL context variables are added to this object
+            pwgl.scene = {};
+            pwgl.satellite = {};
+            pwgl.earth = {}
+            pwgl.ongoingImageLoads = [];
+            var canvas;
+
+            // Variables for interactive control - Scene Translation
+            pwgl.scene.yTrans = 0;
+            pwgl.scene.zTrans = 0;
+            pwgl.scene.xTrans = 0;
+
+            // Interactive control - Scene Rotation
+            pwgl.scene.xRotate = 0;
+            pwgl.scene.yRotate = 0;
+            pwgl.scene.zRotate = 0;
+            pwgl.scene.xOffset = 0;
+            pwgl.scene.yOffset = 0;
+            pwgl.scene.drag = 0;
+
+            // Maintain array of pressed keys use for interaction
+            pwgl.pressedKeys = [];
+
+
+            /** Setup function to create event listeners for interactive control and WebGL events,
+            set initial states and draw scene  **/
+            function setup() {
+                canvas = document.getElementById("glCanvas");
+
+                // Make canvas fit window
+                canvas.height = window.innerHeight;
+                canvas.width = window.innerWidth;
+
+                // Create WebGl event listeners
+                canvas = WebGLDebugUtils.makeLostContextSimulatingCanvas(canvas);
+                canvas.addEventListener('webglcontextlost', contextLostHandler, false);
+                canvas.addEventListener('webglcontextrestored', contextRestoredHandler, false);
+
+                // Create key interactive control listeners
+                document.addEventListener('keydown', keyDownHandler, false);
+                document.addEventListener('keyup', keyUpHandler, false);
+
+                // Create mouse interactive control listeners
+                canvas.addEventListener('mousemove', mouseMoveHandler, false);
+                canvas.addEventListener('mousedown', mouseClickHandler, false);
+                canvas.addEventListener('mouseup', mouseReleaseHandler, false);
+                canvas.addEventListener('mousewheel', wheelScrollHandler, false);
+                canvas.addEventListener('DOMMouseScroll', wheelScrollHandler, false);
+
+                // Create WebGL context in canvas and assign to global variable
+                gl = createGLContext(canvas);
+
+                // Call to init to setup shaders, buffers, lighting, etc.
+                init();
+
+                // Once initial state of shaders, buffers and lighting it set, draw scene on cavas
+                drawScene();
+            }
+
+            function createGLContext(canvas) {
+                var names = ["webgl", "experimental-webgl"];
+                var context = null;
+
+                for (var i=0; i < names.length; i++) {
+                    try {
+                        context = canvas.getContext(names[i]);
+                    } catch(e) {}
+
+                    if (context) {
+                      break;
+                    }
+                }
+
+                  if (context) {
+                    context.viewportWidth = canvas.width;
+                    context.viewportHeight = canvas.height;
+                  } else {
+                    alert("Failed to create WebGL context!");
+                  }
+
+                  return context; 
+            }
+
+            // Initialisation performed during first startup and when webgl context is restored
+            function init() {
+                setupShaders();
+                setupBuffers();
+                setupLighting();
+                setupTextures();
+
+                gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                gl.enable(gl.DEPTH_TEST);
+
+                // Set initial values of satellite variables (position and orbit radius)
+                pwgl.satellite.x = 0.0;
+                pwgl.satellite.y = 0.0;
+                pwgl.satellite.z = 0.0;
+                pwgl.satellite.orbitRadius = 5.5;
+
+                // Earth sphere is of radius 5, orbit radius must be larger
+                pwgl.satellite.minRadius = 5.5;
+
+                // Satellite angle must be updated throughout orbit so same side faces earth (dark side)
+                pwgl.satellite.angle = 0;
+
+                // Initial rotation of earth (rotates around vertical axis)
+                pwgl.earth.rotation = 0;
+
+                // Initial orbit time set to 2 seconds
+                pwgl.satellite.orbitTime = 2000;
+            
+                // Initialise timestamp variables for animation (to calculate position/rotation of scene objects based on animation time)
+                pwgl.scene.animationStarttime = undefined;
+                pwgl.previousFrameTimeStamp = Date.now();
+
+                // Setup perspective & view
+                mat4.perspective(60, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+                mat4.identity(pwgl.modelViewMatrix);
+                mat4.lookAt([0,0,15], [0,0,0], [0,1,0]. pwgl.modelViewMatrix); 
+            }
+
+            function drawScene() {
+                /* Add Earth draw code only */
+            }
+
+
+            /** Setup Scene objects **/
+
+            function setupShaders() {
+                // Add code
+            }
+
+            function setupBuffers() {
+                // Add code
+            }
+
+            function setupLighting() {
+                // Add code
+            }
+
+            function setupTextures() {
+                // Add code
+            }
+
+            /** Load Shader Function **/
+
+            /** Setup Scene Object Buffers **/
+
+            /** Texture Functions **/
+
+            /** Matrix Functions **/
+
+
+
+
+
+            /****** Event Handlers ******/
+
+            /** WebGL Handlers **/
+
+            function contextLostHandler(evt) {
+                evt.preventDefault();
+                cancelRequestAnimFrame(pwgl.requestId);
+                
+                // Remove onload handle for ongoing image loads
+                for (var i=0; i<pwgl.ongoingImageLoads.length; i++) {
+                    pwgl.ongoingImageLoads[i].onload = undefined;
+                }
+
+                pwgl.ongoingImageLoads = []
+            }
+
+            function contextRestoredHandler(evt) {
+                // Reinitialise context object states (shaders, buffers, lighting, ...)
+                init();
+                pwgl.requestId = cancelRequestAnimFrame(draw, canvas);
+            }
+
+
+            /**** Interactive Control Handlers ****/
+
+            /** Key Event Handlers **/
+
+            function keyDownHandler(evt) {
+                // Set value in array of index matching key code of the key pressed to true
+                pwgl.pressedKeys[evt.keyCode] = true;
+            }
+
+            function keyUpHandler(evt) {
+                pwgl.pressedKeys[evt.keycode] = false;
+            }
+
+            // Decides which action to take based on which key has been pressed
+            function keyPressHandler(evt) {
+                // Down arrow pressed, increase radius of satellite orbit
+                if (pwgl.pressedKeys[38]) {
+                    pwgl.satellite.orbitRadius += 0.1;
+                }
+
+                // Up arrow pressed, decrease radius of satellite orbit
+                if (pwgl.pressedKeys[40]) {
+                    // Only decrease orbit radius if above minimum
+                    if (pwgl.satellite.orbitRadius > pwgl.satellite.minRadius) {
+                        pwgl.satellite.orbitRadius -= 0.1;
+                    }
+                }
+
+                // Left arrow pressed, increase time (slower) for satellite to complete orbit 
+                if (pwgl.pressedKeys[37]) {
+                    pwgl.satellite.orbitTime += 20;
+                }
+
+                // Right arrow pressed, decrease time (faster) for satellite to complete orbit
+                if (pwgl.pressedKeys[39]) {
+                    pwgl.satellite.orbitTime -= 20;
+                }
+            }
+
+
+            /** Mouse Event Handlers *//
+
+            function mouseClickHandler(evt) {
+                // If mouse clicked, set drag variable to allow scene naviation with mouse
+                drag = 1;
+            }
+
+            function mouseReleaseHandler(evt) {
+                // Disable scene navigation by mouse drag
+                drag = 0;
+
+                // Gets current position of cursor as offset to movement
+                xOffset = evt.clientX;
+                yOffset = evt.clientY;
+            }
+
+            function mouseMoveHandler(evt) {
+                // If drag not set (mouse button not held), do not adjust scene view
+                if (drag = 0) return;
+
+                // Calculate 'scene' rotation based on offset and current cursor position
+                pwgl.scene.yRotate = - pwgl.scene.xOffset + evt.clientX;
+                pwgl.scene.xRotate = - pwgl.scene.yOffset + evt.clientY;             
+
+                // Set current cursor position as new offset
+                pwgl.scene.xOffset = evt.clientX;
+                pwgl.scene.yOffset = evt.clientY;
+            }
+
+            function wheelScrollHandler(evt) {
+                // Prevent page scroll
+                evt.preventDefault();
+
+                // Change position on Z axis to affect the scene "zoom"
+                pwgl.scene.zTrans = evt.detail / 10
+            }
+
+
+
+
+
+
+            // Call to setup event handling for interatice control and create webgl context on page load
+            document.addEventListener("load", setup);
+        </script>
+    </head>
+    <body>
+        <canvas id="glCanvas"></canvas>
+    </body>
+</html>
