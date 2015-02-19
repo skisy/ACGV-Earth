@@ -2,6 +2,11 @@
 <html>
     <head>
         <title>ACGV Coursework - Earth and Satellite</title>
+        <script src="lib/webgl-debug.js"></script>
+        <script type="text/javascript" src="lib/glMatrix.js"></script>
+        <script src="lib/webgl-utils.js"></script>
+        <meta charset="utf-8">
+
         <script id="shader-vs" type="x-shader/x-vertex">
             attribute vec3 aVertexPosition;
             attribute vec3 aVertexNormal;
@@ -71,7 +76,7 @@
 
                 vec4 texelColor = texture2D(uSampler, vTextureCoordinates);
 
-                // Adjust appropriately the texel color using light weighting to calculate final colour
+                // Adjust appropriately the texel colour using light weighting to calculate final colour
                 gl_FragColor = vec4(lightWeighting.rgb * texelColor.rgb, texelColor.a);
 
 
@@ -84,32 +89,47 @@
                 
 
                 //lightWeighting = spotEffect * uDiffuseLightColor * diffuseLightWeighting + spotEffect * uSpecularLightColor * specularLightWeighting;
-                }
-              } 
+            }
         </script>
 
         <script type="text/javascript">
             // Set up global variables
             var gl;
-            var pwgl = {}; // WebGL context variables are added to this object
-            pwgl.scene = {};
-            pwgl.satellite = {};
-            pwgl.earth = {}
-            pwgl.ongoingImageLoads = [];
             var canvas;
+            var pwgl = {}; // WebGL context variables are added to this object
+            pwgl.view = {};
+            pwgl.satellite = {};
+            pwgl.satellite.texture = {};
+            pwgl.earth = {};
+            pwgl.lights = {};
+            pwgl.ongoingImageLoads = [];
 
             // Variables for interactive control - Scene Translation
-            pwgl.scene.yTrans = 0;
-            pwgl.scene.zTrans = 0;
-            pwgl.scene.xTrans = 0;
+            pwgl.view.yTrans = 0;
+            pwgl.view.zTrans = 0;
+            pwgl.view.xTrans = 0;
 
             // Interactive control - Scene Rotation
-            pwgl.scene.xRotate = 0;
-            pwgl.scene.yRotate = 0;
-            pwgl.scene.zRotate = 0;
-            pwgl.scene.xOffset = 0;
-            pwgl.scene.yOffset = 0;
-            pwgl.scene.drag = 0;
+            pwgl.view.xRotate = 0;
+            pwgl.view.yRotate = 0;
+            pwgl.view.zRotate = 0;
+            pwgl.view.xOffset = 0;
+            pwgl.view.yOffset = 0;
+            pwgl.view.drag = 0;
+
+            // Lighting values - ATLER VALUES
+            pwgl.lights.position = [15, 20, 9];
+            pwgl.lights.ambientColour = [0.2, 0.2, 0.2];
+            pwgl.lights.diffuseColour = [0.6, 0.6, 0.6];
+            pwgl.lights.specularColour = [0.9, 0.9, 0.9];
+
+            // Variables required for drawing sphere correctly
+            // Sphere constructed from latSlice * longSegment rectangles, each constructed from 2 triangles
+            // E.g. 30 * 30 * 2 = 1800 triangles
+            pwgl.earth.latSlices = 30; 
+            pwgl.earth.longSegments = 30;
+
+            pwgl.earth.radius = 5;
 
             // Maintain array of pressed keys use for interaction
             pwgl.pressedKeys = [];
@@ -203,48 +223,349 @@
                 pwgl.satellite.orbitTime = 2000;
             
                 // Initialise timestamp variables for animation (to calculate position/rotation of scene objects based on animation time)
-                pwgl.scene.animationStarttime = undefined;
+                pwgl.animationStartTime = undefined;
                 pwgl.previousFrameTimeStamp = Date.now();
 
                 // Setup perspective & view
                 mat4.perspective(60, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
                 mat4.identity(pwgl.modelViewMatrix);
-                mat4.lookAt([0,0,15], [0,0,0], [0,1,0]. pwgl.modelViewMatrix); 
+                mat4.lookAt([0,0,15], [0,0,0], [0,1,0], pwgl.modelViewMatrix); 
             }
 
             function drawScene() {
-                /* Add Earth draw code only */
+                pwgl.requestId = requestAnimFrame(drawScene);
+
+                var currentTime = Date.now();
+
+                // Set start time to now if first frame/start time not yet defined
+                if (pwgl.animationStartTime === undefined) {
+                    pwgl.animationStartTime = currentTime;
+                }
+
+                keyPressHandler();
+
+                // Calculate scene translation & rotation and update Model-View Matrix with new values
+                mat4.translate(pwgl.modelViewMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.modelViewMatrix);
+                mat4.rotateX(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.xRotate), pwgl.modelViewMatrix);
+                mat4.rotateY(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.yRotate), pwgl.modelViewMatrix);
+
+                // Reset translation and rotation variables (scene is redrawn each time based on relative movement)          
+                pwgl.view.xRotate = 0;
+                pwgl.view.yRotate = 0;
+                pwgl.view.zRotate = 0;
+                pwgl.view.xTrans = 0;
+                pwgl.view.yTrans = 0;
+                pwgl.view.zTrans = 0;
+
+                // Upload updated matrices to shader
+                uploadModelViewMatrixToShader(); // <----------------------------------|
+                uploadProjectionMatrixToShader();
+                uploadNormalMatrixToShader();
+                gl.uniform1i(pwgl.uniformSamplerLoc, 0);
+                gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+
+                // Draw Earth with updated rotation
+                pushModelViewMatrix();
+                // Earth rotates around its Y axis only
+                mat4.rotateY(pwgl.modelViewMatrix, pwgl.earth.rotation, pwgl.modelViewMatrix);
+                uploadModelViewMatrixToShader();
+                uploadNormalMatrixToShader();
+                drawEarth(pwgl.earth.texture);
+                popModelViewMatrix();
+
+                // Update rotation
+                pwgl.earth.rotation += Math.PI / 500;
+
+                // Reset variable when earth has completed full rotation
+                if (pwgl.rotation > 2 * Math.PI) { pwgl.earth.rotation = 0; }
+
+                // Keep track of animation runtime - once 'frame' drawn/complete set as previous frame
+                pwgl.previousFrameTimeStamp = currentTime;             
             }
 
 
             /** Setup Scene objects **/
 
             function setupShaders() {
-                // Add code
+                // Load vertex/fragment shaders and create WebGL program with shaders
+                var vertexShader = loadShaderFromDOM("shader-vs");
+                var fragmentShader = loadShaderFromDOM("shader-fs");
+                var shaderProgram = gl.createProgram();
+                gl.attachShader(shaderProgram, vertexShader);
+                gl.attachShader(shaderProgram, fragmentShader);
+                gl.linkProgram(shaderProgram);
+
+                // Check shaderProgram successfully linked
+                if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS) && !gl.isContextLost()) {
+                    alert("Failed to link shaders: " + gl.getProgramInfoLog(shaderProgram));
+                }
+
+                gl.useProgram(shaderProgram);
+
+                // Get locations in shaders of relevant attributes 
+                pwgl.vertexPositionAttributeLoc = gl.getAttribLocation(shaderProgram, "aVertexPosition"); 
+                pwgl.vertexTextureAttributeLoc = gl.getAttribLocation(shaderProgram, "aTextureCoordinates");
+                pwgl.vertexNormalAttributeLoc = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+
+                pwgl.uniformModelViewMatrixLoc = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+                pwgl.uniformProjectionMatrixLoc = gl.getUniformLocation(shaderProgram, "uPMatrix");
+                pwgl.uniformSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
+                pwgl.uniformNormalMatrixLoc = gl.getUniformLocation(shaderProgram, "uNMatrix"); 
+                pwgl.uniformLightPositionLoc = gl.getUniformLocation(shaderProgram, "uLightPosition");
+
+                //pwgl.uniformSpotDirectionLoc = gl.getUniformLocation(shaderProgram, "uSpotDirection"); 
+                pwgl.uniformAmbientLightColourLoc = gl.getUniformLocation(shaderProgram, "uAmbientLightColor");  
+                pwgl.uniformDiffuseLightColourLoc = gl.getUniformLocation(shaderProgram, "uDiffuseLightColor");
+                pwgl.uniformSpecularLightColourLoc = gl.getUniformLocation(shaderProgram, "uSpecularLightColor");
+                
+                gl.enableVertexAttribArray(pwgl.vertexNormalAttributeLoc);
+                gl.enableVertexAttribArray(pwgl.vertexPositionAttributeLoc);
+                gl.enableVertexAttribArray(pwgl.vertexTextureAttributeLoc);
+
+                pwgl.modelViewMatrix = mat4.create(); 
+                pwgl.projectionMatrix = mat4.create();
+                pwgl.modelViewMatrixStack = [];
             }
 
             function setupBuffers() {
-                // Add code
+                setupEarthBuffers();
+                // setupSatBuffers();
             }
 
             function setupLighting() {
-                // Add code
+                gl.uniform3fv(pwgl.uniformLightPositionLoc, pwgl.lights.position);
+                gl.uniform3fv(pwgl.uniformAmbientLightColourLoc, pwgl.lights.ambientColour);
+                gl.uniform3fv(pwgl.uniformDiffuseLightColourLoc, pwgl.lights.diffuseColour);
+                gl.uniform3fv(pwgl.uniformSpecularLightColourLoc, pwgl.lights.specularColour);
             }
 
             function setupTextures() {
-                // Add code
+                // Satellite has two textures; gray for side facing earth, gold for rest
+
+                // Satellite gold texture
+                /*pwgl.satellite.texture.light = gl.createTexture();
+                loadTextureImage("img/sat-light.jpg", pwgl.satellite.texture.light);
+
+                // Satellite gray texture
+                pwgl.satellite.texture.dark = gl.createTexture();
+                loadTextureImage("img/sat-dark.jpg", pwgl.satellite.texture.dark);*/
+
+                pwgl.earth.texture = gl.createTexture();
+                loadTextureImage("img/earth.jpg", pwgl.earth.texture);
+            }
+
+            function drawEarth(texture) {
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexPositionBuffer);
+                gl.vertexAttribPointer(pwgl.vertexPositionAttributeLoc, pwgl.earth.vertexPositionBufferItemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexNormalBuffer);
+                gl.vertexAttribPointer(pwgl.vertexNormalAttributeLoc, pwgl.earth.vertexNormalBufferItemSize, gl.FLOAT, false, 0, 0);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexTextureCoordBuffer);
+                gl.vertexAttribPointer(pwgl.vertexTextureAttributeLoc, pwgl.earth.vertexTextureCoordBufferItemSize, gl.FLOAT, false, 0, 0);
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.earth.vertexIndexBuffer);
+                gl.drawElements(gl.TRIANGLES, pwgl.earth.vertexIndexBufferNumItems, gl.UNSIGNED_SHORT, 0);
             }
 
             /** Load Shader Function **/
+            function loadShaderFromDOM(DOMid) {
+
+                // Load code from DOM element
+                var shaderScript = document.getElementById(DOMid);
+                
+                // Exit if element not found
+                if (!shaderScript) {
+                    return null;
+                }
+
+                // Build up shader source as string 
+                var shaderSource = "";
+                var currentChild = shaderScript.firstChild;
+
+                // Loop through each node in element until end
+                while (currentChild) {
+                    if (currentChild.nodeType == 3) { // 3 corresponds to TEXT_NODE
+                        shaderSource += currentChild.textContent;
+                    }
+                    currentChild = currentChild.nextSibling;
+                }
+
+                // Decide if code is for fragment or vertex shader, then create shader from code
+                var shader;
+                if (shaderScript.type == "x-shader/x-fragment") {
+                    shader = gl.createShader(gl.FRAGMENT_SHADER);
+                } else if (shaderScript.type == "x-shader/x-vertex") {
+                    shader = gl.createShader(gl.VERTEX_SHADER);
+                } else {
+                    return null;
+                }
+
+                gl.shaderSource(shader, shaderSource);
+                gl.compileShader(shader);
+
+                // Check shader compiled succesfully
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS) && !gl.isContextLost()) {
+                    alert("Compiler Error: See console for error log");
+                    console.log(gl.getShaderInfoLog(shader));
+                    return null;
+                } 
+                
+                return shader;
+            }
 
             /** Setup Scene Object Buffers **/
 
+            function setupEarthBuffers() {
+                var earthVertexPosition = [];
+                var earthVertexIndices = [];
+                var earthTextureCoordinates = [];
+                var earthVertexNormals = [];
+
+                for (var slice=0; slice<=pwgl.earth.latSlices; slice++) {
+                    var theta = slice * Math.PI / pwgl.earth.latSlices;
+                    var cosTheta = Math.cos(theta);
+                    var sinTheta = Math.sin(theta);
+
+                    for (var segment=0;segment<=pwgl.earth.longSegments; segment++) {
+                        var phi = segment * 2 * Math.PI / pwgl.earth.longSegments;
+                        var cosPhi = Math.cos(phi);
+                        var sinPhi = Math.sin(phi);
+                        var x = cosPhi * sinTheta;
+                        var y = cosTheta;
+                        var z = sinPhi * sinTheta;
+                        var u = 1 - segment / pwgl.earth.longSegments;
+                        var v = 1 - slice / pwgl.earth.latSlices;
+
+                        // Push position coordinates to position data array for buffer
+                        earthVertexPosition.push(pwgl.earth.radius * x);
+                        earthVertexPosition.push(pwgl.earth.radius * y);
+                        earthVertexPosition.push(pwgl.earth.radius * z);
+
+                        // Push vertex normals to data array
+                        earthVertexNormals.push(x);
+                        earthVertexNormals.push(y);
+                        earthVertexNormals.push(z);
+
+                        // Push coordinates for texture to apply to data array
+                        earthTextureCoordinates.push(u);
+                        earthTextureCoordinates.push(v);
+
+                        // Create vertex indices
+                        if (slice != pwgl.earth.latSlices && segment != pwgl.earth.longSegments) {
+                            var first = segment + ((pwgl.earth.longSegments + 1) * slice);
+                            var second = pwgl.earth.longSegments + first + 1;
+
+                            // Push vertex indices to data array
+                            // First triangle
+                            earthVertexIndices.push(first);
+                            earthVertexIndices.push(second);
+                            earthVertexIndices.push(first + 1);
+
+                            // Second triangle
+                            earthVertexIndices.push(second);
+                            earthVertexIndices.push(second + 1);
+                            earthVertexIndices.push(first + 1);
+                        }
+                    }
+                }
+
+                // Create WebGL buffers and add data from arrays
+                // Vertex Position Buffer
+                pwgl.earth.vertexPositionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexPositionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexPosition), gl.STATIC_DRAW);
+                pwgl.earth.vertexPositionBufferItemSize = 3;
+                pwgl.earth.vertexPositionBufferNumItems = earthVertexPosition.length / 3;
+
+                // Vertices Index Buffer
+                pwgl.earth.vertexIndexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.earth.vertexIndexBuffer);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(earthVertexIndices), gl.STATIC_DRAW);
+                pwgl.earth.vertexIndexBufferItemSize = 1;
+                pwgl.earth.vertexIndexBufferNumItems = earthVertexIndices.length;
+
+                // Texture Vertices Coordinates Buffer
+                pwgl.earth.vertexTextureCoordBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexTextureCoordBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthTextureCoordinates), gl.STATIC_DRAW);
+                pwgl.earth.vertexTextureCoordBufferItemSize = 2;
+                pwgl.earth.vertexTextureCoordBufferNumItems = earthTextureCoordinates.length / 3;
+
+                // Vertex Normals Buffer
+                pwgl.earth.vertexNormalBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, pwgl.earth.vertexNormalBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexNormals), gl.STATIC_DRAW);
+                pwgl.earth.vertexNormalBufferItemSize = 3;
+                pwgl.earth.vertexNormalBufferNumItems = earthVertexNormals.length / 3;
+            }
+
+            // Add Satellite buffer
+
             /** Texture Functions **/
 
-            /** Matrix Functions **/
+            function loadTextureImage(url, texture) {
+                var image = new Image();
+                image.onload = function() {
+                    pwgl.ongoingImageLoads.splice(pwgl.ongoingImageLoads.indexOf(image), 1);
+                    textureLoaded(image, texture);
+                };
+                pwgl.ongoingImageLoads.push(image);
+                image.src = url;
+            }
 
+            function textureLoaded(image, texture) {
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                gl.generateMipmap(gl.TEXTURE_2D);
 
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT);
 
+                gl.bindTexture(gl.TEXTURE_2D, null);
+            }
+
+            /**** Matrix Functions ****/
+
+            /** Functions to upload matrices to shader **/
+            function uploadModelViewMatrixToShader() {
+                gl.uniformMatrix4fv(pwgl.uniformModelViewMatrixLoc, false, pwgl.modelViewMatrix);
+            }
+
+            function uploadProjectionMatrixToShader() {
+                gl.uniformMatrix4fv(pwgl.uniformProjectionMatrixLoc, false, pwgl.projectionMatrix);
+            }
+
+            function uploadNormalMatrixToShader() {
+                var normalMatrix = mat3.create();
+                mat4.toInverseMat3(pwgl.modelViewMatrix, normalMatrix);
+                mat3.transpose(normalMatrix);
+                gl.uniformMatrix3fv(pwgl.uniformNormalMatrixLoc, false, normalMatrix);
+            }
+
+            /** Model View Matrix Stack Functions **/
+
+            function pushModelViewMatrix() {
+                var copyToPush = mat4.create(pwgl.modelViewMatrix);
+                pwgl.modelViewMatrixStack.push(copyToPush);
+            }
+
+            function popModelViewMatrix() {
+                // Check stack is not empty before attempting pop
+                if (pwgl.modelViewMatrixStack.length === 0) {
+                    throw "Error popModelViewMatrix() - Stack was empty ";
+                }
+                
+                // Set Model-View Matrix to state last pushed to stack
+                pwgl.modelViewMatrix = pwgl.modelViewMatrixStack.pop();
+            }
 
 
             /****** Event Handlers ******/
@@ -260,13 +581,13 @@
                     pwgl.ongoingImageLoads[i].onload = undefined;
                 }
 
-                pwgl.ongoingImageLoads = []
+                pwgl.ongoingImageLoads = [];
             }
 
             function contextRestoredHandler(evt) {
                 // Reinitialise context object states (shaders, buffers, lighting, ...)
                 init();
-                pwgl.requestId = cancelRequestAnimFrame(draw, canvas);
+                pwgl.requestId = requestAnimFrame(drawScene, canvas);
             }
 
 
@@ -310,33 +631,33 @@
             }
 
 
-            /** Mouse Event Handlers *//
+            /** Mouse Event Handlers **/
 
             function mouseClickHandler(evt) {
                 // If mouse clicked, set drag variable to allow scene naviation with mouse
-                drag = 1;
+                pwgl.view.drag = 1;
             }
 
             function mouseReleaseHandler(evt) {
                 // Disable scene navigation by mouse drag
-                drag = 0;
+                pwgl.view.drag = 0;
 
                 // Gets current position of cursor as offset to movement
-                xOffset = evt.clientX;
-                yOffset = evt.clientY;
+                pwgl.view.xOffset = evt.clientX;
+                pwgl.view.yOffset = evt.clientY;
             }
 
             function mouseMoveHandler(evt) {
                 // If drag not set (mouse button not held), do not adjust scene view
-                if (drag = 0) return;
+                if (pwgl.view.drag === 0) return;
 
                 // Calculate 'scene' rotation based on offset and current cursor position
-                pwgl.scene.yRotate = - pwgl.scene.xOffset + evt.clientX;
-                pwgl.scene.xRotate = - pwgl.scene.yOffset + evt.clientY;             
+                pwgl.view.yRotate = - pwgl.view.xOffset + evt.clientX;
+                pwgl.view.xRotate = - pwgl.view.yOffset + evt.clientY;             
 
                 // Set current cursor position as new offset
-                pwgl.scene.xOffset = evt.clientX;
-                pwgl.scene.yOffset = evt.clientY;
+                pwgl.view.xOffset = evt.clientX;
+                pwgl.view.yOffset = evt.clientY;
             }
 
             function wheelScrollHandler(evt) {
@@ -344,19 +665,21 @@
                 evt.preventDefault();
 
                 // Change position on Z axis to affect the scene "zoom"
-                pwgl.scene.zTrans = evt.detail / 10
+                pwgl.view.zTrans = evt.detail / 10;
             }
 
 
-
-
+            /** Helper Functions **/
+            function degreesToRadian(degrees) {
+                return degrees * Math.PI / 180;
+            }
 
 
             // Call to setup event handling for interatice control and create webgl context on page load
-            document.addEventListener("load", setup);
+            //document.addEventListener("load", setup);
         </script>
     </head>
-    <body>
+    <body onload='setup();'>
         <canvas id="glCanvas"></canvas>
     </body>
 </html>

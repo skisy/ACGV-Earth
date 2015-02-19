@@ -7,7 +7,6 @@
   <script src="lib/webgl-utils.js"></script>
   <meta charset="utf-8"> 
 
-
   <script id="shader-vs" type="x-shader/x-vertex">
   attribute vec3 aVertexPosition;
   attribute vec3 aVertexNormal;
@@ -283,7 +282,7 @@ function setupEarthBuffers() {
 
   pwgl.earthVertexIndexBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, pwgl.earthVertexIndexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(earthVertexIndices), gl.STATIC_DRAW);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(earthVertexIndices), gl.STATIC_DRAW);
   pwgl.EARTH_VERTEX_INDEX_BUF_ITEM_SIZE = 1
   pwgl.EARTH_VERTEX_INDEX_BUF_NUM_ITEM = earthVertexIndices.length;
 
@@ -446,7 +445,7 @@ function setupTextures() {
   pwgl.satTexture = {}
 
   // Texture for the satellite - light
-  pwgl.satTexture['light'] = gl.createTexture();
+  pwgl.satTexture.light = gl.createTexture();
   loadImageForTexture("img/sat-light.jpg", pwgl.satTexture['light']);
 
   // Texture for the satellite - dark side
@@ -498,7 +497,7 @@ function setupBuffers() {
 function setupLights() {
   // Spotlight position is set to far away so that it acts like a directional light
   gl.uniform3fv(pwgl.uniformLightPositionLoc, [0.0, 100.0, -16.0]);
-  gl.uniform3fv(pwgl.uniformSpotDirectionLoc, [0.0, -1.0, 0.0]); 
+ // gl.uniform3fv(pwgl.uniformSpotDirectionLoc, [0.0, -1.0, 0.0]); 
   gl.uniform3fv(pwgl.uniformAmbientLightColorLoc, [0.2, 0.2, 0.2]);
   gl.uniform3fv(pwgl.uniformDiffuseLightColorLoc, [0.7, 0.7, 0.7]);
   gl.uniform3fv(pwgl.uniformSpecularLightColorLoc, [0.8, 0.8, 0.8]);
