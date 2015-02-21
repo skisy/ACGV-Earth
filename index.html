@@ -56,7 +56,7 @@
             //uniform vec3 uSpotDirection;
             uniform sampler2D uSampler;
 
-            const float shininess = 42.0;
+            const float shininess = 50.0;
             //const float spotExponent = 40.0;
             // cutoff angle of spot light
             //const float spotCosCutoff = 0.97; // corresponds to 14 degrees
@@ -126,8 +126,8 @@
             pwgl.view.drag = 0;
 
             // Lighting values - ATLER VALUES
-            pwgl.lights.position = [15, 20, 9];
-            pwgl.lights.ambientColour = [0.2, 0.2, 0.2];
+            pwgl.lights.position = [0, 60, 10];
+            pwgl.lights.ambientColour = [0.1, 0.1, 0.1];
             pwgl.lights.diffuseColour = [0.6, 0.6, 0.6];
             pwgl.lights.specularColour = [0.9, 0.9, 0.9];
 
@@ -237,8 +237,11 @@
                 pwgl.animationStartTime = undefined;
                 pwgl.previousFrameTimeStamp = Date.now();
 
+                // Field of View perspective
+                pwgl.fovy = 80;
+
                 // Setup perspective & view
-                mat4.perspective(60, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+                mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
                 mat4.identity(pwgl.modelViewMatrix);
                 mat4.lookAt([0,0,15], [0,0,0], [0,1,0], pwgl.modelViewMatrix); 
             }
@@ -256,7 +259,8 @@
                 keyPressHandler();
 
                 // Calculate scene translation & rotation and update Model-View Matrix with new values
-                mat4.translate(pwgl.modelViewMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.modelViewMatrix);
+                mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+                //mat4.translate(pwgl.modelViewMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.modelViewMatrix);
                 mat4.rotateX(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.xRotate), pwgl.modelViewMatrix);
                 mat4.rotateY(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.yRotate), pwgl.modelViewMatrix);
 
@@ -269,7 +273,7 @@
                 pwgl.view.zTrans = 0;
 
                 // Upload updated matrices to shader
-                uploadModelViewMatrixToShader(); // <----------------------------------|
+                uploadModelViewMatrixToShader();
                 uploadProjectionMatrixToShader();
                 uploadNormalMatrixToShader();
                 gl.uniform1i(pwgl.uniformSamplerLoc, 0);
@@ -822,18 +826,18 @@
                     }
                 }
 
-                // Left arrow pressed, decrease time (faster) for satellite to complete orbit 
+                // Left arrow pressed, increase time (slower) for satellite to complete orbit 
                 if (pwgl.pressedKeys[37]) {
-                    if (pwgl.satellite.orbitTime > 100) {
-                        pwgl.satellite.orbitTime -= 10;
+                    if (pwgl.satellite.orbitTime < 2500) {
+                        pwgl.satellite.orbitTime += 10;
                         console.log(pwgl.satellite.orbitTime);
                     }
                 }
 
-                // Right arrow pressed, increase time (slower) for satellite to complete orbit 
+                // Right arrow pressed, decrease time (faster) for satellite to complete orbit 
                 if (pwgl.pressedKeys[39]) {
-                    if (pwgl.satellite.orbitTime < 2500) {
-                        pwgl.satellite.orbitTime += 20;
+                    if (pwgl.satellite.orbitTime > 100) {
+                        pwgl.satellite.orbitTime -= 20;
                         console.log(pwgl.satellite.orbitTime);
                     }
                 }
@@ -874,7 +878,8 @@
                 evt.preventDefault();
 
                 // Change position on Z axis to affect the scene "zoom"
-                pwgl.view.zTrans = evt.detail / 10;
+                pwgl.fovy += evt.detail;
+                //console.log(pwgl.fovy);
             }
 
 
@@ -885,10 +890,10 @@
 
 
             // Call to setup event handling for interatice control and create webgl context on page load
-            //document.addEventListener("load", setup);
+            window.addEventListener("load", setup);
         </script>
     </head>
-    <body onload='setup();'>
+    <body>
         <canvas id="glCanvas"></canvas>
     </body>
 </html>
