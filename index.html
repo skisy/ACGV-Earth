@@ -128,7 +128,7 @@
             // Lighting values
             pwgl.lights.position = [0, 80, 0.0];
             pwgl.lights.ambientColour = [0.3, 0.3, 0.3];
-            pwgl.lights.diffuseColour = [0.8, 0.8, 0.8];
+            pwgl.lights.diffuseColour = [0.9, 0.9, 0.9];
             pwgl.lights.specularColour = [0.3, 0.3, 0.3];
 
             // Variables required for drawing sphere correctly
@@ -237,13 +237,13 @@
                 pwgl.animationStartTime = undefined;
                 pwgl.previousFrameTimeStamp = Date.now();
 
-                // Field of View perspective
-                pwgl.fovy = 80;
+                // Field of View
+                pwgl.fovy = 45;
 
                 // Setup perspective & view
                 mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
                 mat4.identity(pwgl.modelViewMatrix);
-                mat4.lookAt([0,0,15], [0,0,0], [0,1,0], pwgl.modelViewMatrix); 
+                mat4.lookAt([0,0,25], [0,0,0], [0,1,0], pwgl.modelViewMatrix); 
             }
 
             function drawScene() {
@@ -259,10 +259,14 @@
                 keyPressHandler();
 
                 // Calculate scene translation & rotation and update Model-View Matrix with new values
-                mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+                //mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+
                 //mat4.translate(pwgl.modelViewMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.modelViewMatrix);
                 mat4.rotateX(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.xRotate), pwgl.modelViewMatrix);
                 mat4.rotateY(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.yRotate), pwgl.modelViewMatrix);
+
+              // mat4.rotateX(pwgl.modelViewMatrix, pwgl.view.xRotate / 100, pwgl.modelViewMatrix);
+				//mat4.rotateY(pwgl.modelViewMatrix, pwgl.view.yRotate / 100, pwgl.modelViewMatrix);
 
                 // Reset translation and rotation variables (scene is redrawn each time based on relative movement)          
                 pwgl.view.xRotate = 0;
@@ -850,28 +854,29 @@
             function mouseClickHandler(evt) {
                 // If mouse clicked, set drag variable to allow scene naviation with mouse
                 pwgl.view.drag = 1;
-            }
-
-            function mouseReleaseHandler(evt) {
-                // Disable scene navigation by mouse drag
-                pwgl.view.drag = 0;
 
                 // Gets current position of cursor as offset to movement
                 pwgl.view.xOffset = evt.clientX;
                 pwgl.view.yOffset = evt.clientY;
             }
 
+            function mouseReleaseHandler(evt) {
+                // Disable scene navigation by mouse drag
+                pwgl.view.drag = 0;
+            }
+
             function mouseMoveHandler(evt) {
                 // If drag not set (mouse button not held), do not adjust scene view
-                if (pwgl.view.drag === 0) return;
+                if (pwgl.view.drag) {
 
-                // Calculate 'scene' rotation based on offset and current cursor position
-                pwgl.view.yRotate = - pwgl.view.xOffset + evt.clientX;
-                pwgl.view.xRotate = - pwgl.view.yOffset + evt.clientY;             
+	                // Calculate 'scene' rotation based on offset and current cursor position
+	                pwgl.view.yRotate = -pwgl.view.xOffset + evt.clientX;
+	                pwgl.view.xRotate = -pwgl.view.yOffset + evt.clientY;             
 
-                // Set current cursor position as new offset
-                pwgl.view.xOffset = evt.clientX;
-                pwgl.view.yOffset = evt.clientY;
+	                // Set current cursor position as new offset
+	                pwgl.view.xOffset = evt.clientX;
+	                pwgl.view.yOffset = evt.clientY;
+	            }
             }
 
             function wheelScrollHandler(evt) {
@@ -879,7 +884,7 @@
                 evt.preventDefault();
 
                 // Change fov to affect the zoom-like behaviour
-                pwgl.fovy += evt.detail;
+                //pwgl.fovy += evt.detail;
                 //console.log(pwgl.fovy);
             }
 
