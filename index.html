@@ -123,6 +123,8 @@
             pwgl.view.zRotate = 0;
             pwgl.view.xOffset = 0;
             pwgl.view.yOffset = 0;
+            pwgl.view.currentY = 0;
+            pwgl.view.currentX = 0;
             pwgl.view.drag = 0;
 
             // Lighting values
@@ -160,6 +162,7 @@
                 // Create key interactive control listeners
                 document.addEventListener('keydown', keyDownHandler, false);
                 document.addEventListener('keyup', keyUpHandler, false);
+              //document.addEventListener('resize', handleReize, false); // Resize canvas, context and redraw scene
 
                 // Create mouse interactive control listeners
                 canvas.addEventListener('mousemove', mouseMoveHandler, false);
@@ -259,14 +262,10 @@
                 keyPressHandler();
 
                 // Calculate scene translation & rotation and update Model-View Matrix with new values
-                //mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
 
-                //mat4.translate(pwgl.modelViewMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.modelViewMatrix);
+                mat4.translate(pwgl.projectionMatrix, [pwgl.view.xTrans, pwgl.view.yTrans, pwgl.view.zTrans], pwgl.projectionMatrix);
                 mat4.rotateX(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.xRotate), pwgl.modelViewMatrix);
                 mat4.rotateY(pwgl.modelViewMatrix, degreesToRadian(pwgl.view.yRotate), pwgl.modelViewMatrix);
-
-              // mat4.rotateX(pwgl.modelViewMatrix, pwgl.view.xRotate / 100, pwgl.modelViewMatrix);
-				//mat4.rotateY(pwgl.modelViewMatrix, pwgl.view.yRotate / 100, pwgl.modelViewMatrix);
 
                 // Reset translation and rotation variables (scene is redrawn each time based on relative movement)          
                 pwgl.view.xRotate = 0;
@@ -283,7 +282,6 @@
                 gl.uniform1i(pwgl.uniformSamplerLoc, 0);
                 gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
                 gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
 
                 // Draw Earth with updated rotation
                 pushModelViewMatrix();
@@ -811,6 +809,9 @@
             function keyDownHandler(evt) {
                 // Set value in array of index matching key code of the key pressed to true
                 pwgl.pressedKeys[evt.keyCode] = true;
+                console.log(evt.keyCode);
+
+               // console.log(evt.keyCode, pwgl.pressedKeys[evt.keyCode]);
             }
 
             function keyUpHandler(evt) {
@@ -818,34 +819,95 @@
             }
 
             // Decides which action to take based on which key has been pressed
-            function keyPressHandler(evt) {
-                // Up arrow pressed, increase radius of satellite orbit
-                if (pwgl.pressedKeys[38]) {
-                      pwgl.satellite.orbitRadius += 0.1;
-                }
+            function keyPressHandler() {
+            	// Check for Alt key held
+            	if (pwgl.pressedKeys[18]) {
+            		// Up Arrow: increase radius of satellite orbit
+	                if (pwgl.pressedKeys[38]) {
+	                    pwgl.satellite.orbitRadius += 0.1;
+	                } 
+	                // Down Arrow: decrease radius of satellite orbit
+	                else if (pwgl.pressedKeys[40]) {
+	                	if (pwgl.satellite.orbitRadius >= pwgl.satellite.minRadius) {
+	                        pwgl.satellite.orbitRadius -= 0.1;
+	                    }
+	                } 
 
-                // Down arrow pressed, decrease radius of satellite orbit
-                if (pwgl.pressedKeys[40]) {
-                    if (pwgl.satellite.orbitRadius >= pwgl.satellite.minRadius) {
-                        pwgl.satellite.orbitRadius -= 0.1;
-                    }
-                }
+	                // Left Arrow: slow down satellite orbit (increase orbit time)
+	                if (pwgl.pressedKeys[37]) {
+	                    if (pwgl.satellite.orbitTime < 2500) {
+	                        pwgl.satellite.orbitTime += 10;
+	                        //console.log(pwgl.satellite.orbitTime);
+	                    }
+	                }
+	                // Right Arrow: speed up satellite orbit (decrease orbit time)
+	                else if (pwgl.pressedKeys[39]) {
+	                    if (pwgl.satellite.orbitTime > 100) {
+	                        pwgl.satellite.orbitTime -= 20;
+	                        //console.log(pwgl.satellite.orbitTime);
+	                    }
+	                }
+	            // Check for Shift key held
+            	} else if (pwgl.pressedKeys[16]) {
+            		// Shift + Up: rotate up
+            		if (pwgl.pressedKeys[38]) {
+            			pwgl.view.xRotate += 1;
+	                } 
+	                // Down Arrow: rotate down
+	                else if (pwgl.pressedKeys[40]) {
+	                	pwgl.view.xRotate -= 1;
+	                } 
 
-                // Left arrow pressed, increase time (slower) for satellite to complete orbit 
-                if (pwgl.pressedKeys[37]) {
-                    if (pwgl.satellite.orbitTime < 2500) {
-                        pwgl.satellite.orbitTime += 10;
-                        console.log(pwgl.satellite.orbitTime);
-                    }
-                }
+	                // Left Arrow: rotate left
+	                if (pwgl.pressedKeys[37]) {
+	  					pwgl.view.yRotate -= 1; 
+	                }
+	                // Right Arrow: rotate right
+	                else if (pwgl.pressedKeys[39]) {
+	                 	pwgl.view.yRotate += 1;
+	                }
 
-                // Right arrow pressed, decrease time (faster) for satellite to complete orbit 
-                if (pwgl.pressedKeys[39]) {
-                    if (pwgl.satellite.orbitTime > 100) {
-                        pwgl.satellite.orbitTime -= 20;
-                        console.log(pwgl.satellite.orbitTime);
-                    }
-                }
+	            	// Ctrl + -: zoom out
+	            	if (pwgl.pressedKeys[173]) {
+	            		pwgl.view.zTrans -= 0.2;
+	            	}
+	            	// Ctrl + +: zoom in
+	            	else if (pwgl.pressedKeys[61]) {
+	            		pwgl.view.zTrans += 0.2;
+	            	}
+            	} else {
+            		var relPosY = pwgl.view.currentY / gl.viewportHeight * 100;
+            		var relPosX = pwgl.view.currentX / gl.viewportWidth * 100;
+            		// Alt + Up: move view up
+            		if (pwgl.pressedKeys[38]) {
+            			if (relPosY < 1) {
+	            			pwgl.view.yTrans += 0.1;
+	            			pwgl.view.currentY += 0.1;
+            			}
+            		}
+            		// Alt + Down: move view down
+            		else if (pwgl.pressedKeys[40]) {
+            			if (relPosY > -1) {
+	            			pwgl.view.yTrans -= 0.1;
+	            			pwgl.view.currentY -= 0.1;
+	            		}
+            			
+            		}
+            		// Alt + Left: move view left
+            		if (pwgl.pressedKeys[37]) {
+            			if (relPosX < 1) {
+	            			pwgl.view.xTrans -= 0.1;
+	            			pwgl.view.currentX += 0.1;
+            			}
+            		}
+            		// Alt + Right: move view right
+            		else if (pwgl.pressedKeys[39]) {
+            			if (relPosX > -1) {
+	            			pwgl.view.xTrans += 0.1;
+	            			pwgl.view.currentX -= 0.1;
+	            		}	
+            		}
+	            }
             }
 
 
@@ -871,7 +933,9 @@
 
 	                // Calculate 'scene' rotation based on offset and current cursor position
 	                pwgl.view.yRotate = -pwgl.view.xOffset + evt.clientX;
-	                pwgl.view.xRotate = -pwgl.view.yOffset + evt.clientY;             
+	                pwgl.view.xRotate = -pwgl.view.yOffset + evt.clientY;
+	                console.log(pwgl.view.yRotate);           
+	                console.log(pwgl.view.xRotate);           
 
 	                // Set current cursor position as new offset
 	                pwgl.view.xOffset = evt.clientX;
@@ -880,12 +944,11 @@
             }
 
             function wheelScrollHandler(evt) {
-                // Prevent page scroll
                 evt.preventDefault();
 
-                // Change fov to affect the zoom-like behaviour
-                //pwgl.fovy += evt.detail;
-                //console.log(pwgl.fovy);
+                // Affects zoom - mouse wheel forward zooms in, mouse wheel back zooms out
+                pwgl.view.zTrans += -evt.detail / 5;
+                
             }
 
 
