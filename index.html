@@ -809,7 +809,7 @@
             function keyDownHandler(evt) {
                 // Set value in array of index matching key code of the key pressed to true
                 pwgl.pressedKeys[evt.keyCode] = true;
-                console.log(evt.keyCode);
+                //console.log(evt.keyCode);
 
                // console.log(evt.keyCode, pwgl.pressedKeys[evt.keyCode]);
             }
@@ -822,25 +822,25 @@
             function keyPressHandler() {
             	// Check for Alt key held
             	if (pwgl.pressedKeys[18]) {
-            		// Up Arrow: increase radius of satellite orbit
+            		// Alt + Up: increase radius of satellite orbit
 	                if (pwgl.pressedKeys[38]) {
 	                    pwgl.satellite.orbitRadius += 0.1;
 	                } 
-	                // Down Arrow: decrease radius of satellite orbit
+	                // Alt + Down: decrease radius of satellite orbit
 	                else if (pwgl.pressedKeys[40]) {
 	                	if (pwgl.satellite.orbitRadius >= pwgl.satellite.minRadius) {
 	                        pwgl.satellite.orbitRadius -= 0.1;
 	                    }
 	                } 
 
-	                // Left Arrow: slow down satellite orbit (increase orbit time)
+	                // Alt + Left: slow down satellite orbit (increase orbit time)
 	                if (pwgl.pressedKeys[37]) {
 	                    if (pwgl.satellite.orbitTime < 2500) {
 	                        pwgl.satellite.orbitTime += 10;
 	                        //console.log(pwgl.satellite.orbitTime);
 	                    }
 	                }
-	                // Right Arrow: speed up satellite orbit (decrease orbit time)
+	                // Alt + Right: speed up satellite orbit (decrease orbit time)
 	                else if (pwgl.pressedKeys[39]) {
 	                    if (pwgl.satellite.orbitTime > 100) {
 	                        pwgl.satellite.orbitTime -= 20;
@@ -849,20 +849,20 @@
 	                }
 	            // Check for Shift key held
             	} else if (pwgl.pressedKeys[16]) {
-            		// Shift + Up: rotate up
+            		// Ctrl + Up: rotate up
             		if (pwgl.pressedKeys[38]) {
             			pwgl.view.xRotate += 1;
 	                } 
-	                // Down Arrow: rotate down
+	                // Ctrl + Down: rotate down
 	                else if (pwgl.pressedKeys[40]) {
 	                	pwgl.view.xRotate -= 1;
 	                } 
 
-	                // Left Arrow: rotate left
+	                // Ctrl + Left: rotate left
 	                if (pwgl.pressedKeys[37]) {
 	  					pwgl.view.yRotate -= 1; 
 	                }
-	                // Right Arrow: rotate right
+	                // Ctrl + Right: rotate right
 	                else if (pwgl.pressedKeys[39]) {
 	                 	pwgl.view.yRotate += 1;
 	                }
@@ -878,14 +878,14 @@
             	} else {
             		var relPosY = pwgl.view.currentY / gl.viewportHeight * 100;
             		var relPosX = pwgl.view.currentX / gl.viewportWidth * 100;
-            		// Alt + Up: move view up
+            		//  Up Arrow: move view up
             		if (pwgl.pressedKeys[38]) {
             			if (relPosY < 1) {
 	            			pwgl.view.yTrans += 0.1;
 	            			pwgl.view.currentY += 0.1;
             			}
             		}
-            		// Alt + Down: move view down
+            		// Down Arrow: move view down
             		else if (pwgl.pressedKeys[40]) {
             			if (relPosY > -1) {
 	            			pwgl.view.yTrans -= 0.1;
@@ -893,14 +893,14 @@
 	            		}
             			
             		}
-            		// Alt + Left: move view left
+            		// Left Arrow: move view left
             		if (pwgl.pressedKeys[37]) {
             			if (relPosX < 1) {
 	            			pwgl.view.xTrans -= 0.1;
 	            			pwgl.view.currentX += 0.1;
             			}
             		}
-            		// Alt + Right: move view right
+            		// Right Arrow: move view right
             		else if (pwgl.pressedKeys[39]) {
             			if (relPosX > -1) {
 	            			pwgl.view.xTrans += 0.1;
@@ -934,8 +934,8 @@
 	                // Calculate 'scene' rotation based on offset and current cursor position
 	                pwgl.view.yRotate = -pwgl.view.xOffset + evt.clientX;
 	                pwgl.view.xRotate = -pwgl.view.yOffset + evt.clientY;
-	                console.log(pwgl.view.yRotate);           
-	                console.log(pwgl.view.xRotate);           
+	                //console.log(pwgl.view.yRotate);           
+	                //console.log(pwgl.view.xRotate);           
 
 	                // Set current cursor position as new offset
 	                pwgl.view.xOffset = evt.clientX;
