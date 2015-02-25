@@ -5,16 +5,9 @@
         <script src="lib/webgl-debug.js"></script>
         <script type="text/javascript" src="lib/glMatrix.js"></script>
         <script src="lib/webgl-utils.js"></script>
+        <meta name="author" content="660273">
         <meta charset="utf-8">
-        <style>
-          * {
-            margin: 0;
-            padding: 0;
-            border: none;
-            overflow:hidden;
-          }
-        </style>
-
+        <link rel="stylesheet" href="css/core.css">
         <script id="shader-vs" type="x-shader/x-vertex">
             attribute vec3 aVertexPosition;
             attribute vec3 aVertexNormal;
@@ -53,13 +46,9 @@
             uniform vec3 uDiffuseLightColor;
             uniform vec3 uSpecularLightColor;
             uniform vec3 uLightPosition;
-            //uniform vec3 uSpotDirection;
             uniform sampler2D uSampler;
 
             const float shininess = 25.0;
-            //const float spotExponent = 40.0;
-            // cutoff angle of spot light
-            //const float spotCosCutoff = 0.97; // corresponds to 14 degrees
 
             vec3 lightWeighting = vec3(0.0, 0.0, 0.0);
 
@@ -81,22 +70,11 @@
                 // Calculate overal light weighting combining diffuse, specular and ambient light
                 lightWeighting = uDiffuseLightColor * diffuseLightWeighting + uSpecularLightColor * specularLightWeighting + uAmbientLightColor;
 
-
                 vec4 texelColor = texture2D(uSampler, vTextureCoordinates);
 
                 // Adjust appropriately the texel colour using light weighting to calculate final colour
                 gl_FragColor = vec4(lightWeighting.rgb * texelColor.rgb, texelColor.a);
 
-
-                // Calculate the intensity of spot light in the direction of vectorToLightSource.
-                /*float spotEffect = dot(normalize(uSpotDirection), normalize(-vectorToLightSource));
-
-                // Check that we are inside the spot light cone
-                if (spotEffect > spotCosCutoff) {
-                    spotEffect = pow(spotEffect, spotExponent);*/
-                
-
-                //lightWeighting = spotEffect * uDiffuseLightColor * diffuseLightWeighting + spotEffect * uSpecularLightColor * specularLightWeighting;
             }
         </script>
 
@@ -148,6 +126,30 @@
             /** Setup function to create event listeners for interactive control and WebGL events,
             set initial states and draw scene  **/
             function setup() {
+            	// Handle click event on controls button to show list of controls
+        		var ctrlbtn = document.getElementById("controls_btn");
+        		var ctrls = document.getElementById("controls");
+        		var infobtn = document.getElementById("info_btn");
+        		var info = document.getElementById("info");
+
+        		ctrlbtn.addEventListener('click', function() {
+        			if ((ctrls.style.display == "") || (ctrls.style.display == "none")) {
+        				ctrls.style.display = "block";
+        				info.style.display = "none";
+        			} else {
+        				ctrls.style.display = "none";
+        			}
+        		});
+
+        		infobtn.addEventListener('click', function() {
+        			if ((info.style.display == "") || (info.style.display == "none")) {
+        				info.style.display = "block";
+        				ctrls.style.display = "none";
+        			} else {
+        				info.style.display = "none";
+        			}
+        		});
+
                 canvas = document.getElementById("glCanvas");
 
                 // Make canvas fit window
@@ -162,14 +164,14 @@
                 // Create key interactive control listeners
                 document.addEventListener('keydown', keyDownHandler, false);
                 document.addEventListener('keyup', keyUpHandler, false);
-              //document.addEventListener('resize', handleReize, false); // Resize canvas, context and redraw scene
 
                 // Create mouse interactive control listeners
-                canvas.addEventListener('mousemove', mouseMoveHandler, false);
                 canvas.addEventListener('mousedown', mouseClickHandler, false);
                 canvas.addEventListener('mouseup', mouseReleaseHandler, false);
+                canvas.addEventListener('mousemove', mouseMoveHandler, false);
                 canvas.addEventListener('mousewheel', wheelScrollHandler, false);
                 canvas.addEventListener('DOMMouseScroll', wheelScrollHandler, false);
+                window.addEventListener('resize', resizeHandler, false);
 
                 // Create WebGL context in canvas and assign to global variable
                 gl = createGLContext(canvas);
@@ -847,8 +849,8 @@
 	                        //console.log(pwgl.satellite.orbitTime);
 	                    }
 	                }
-	            // Check for Shift key held
-            	} else if (pwgl.pressedKeys[16]) {
+	            // Check for Ctrl key held
+            	} else if (pwgl.pressedKeys[17]) {
             		// Ctrl + Up: rotate up
             		if (pwgl.pressedKeys[38]) {
             			pwgl.view.xRotate += 1;
@@ -866,16 +868,7 @@
 	                else if (pwgl.pressedKeys[39]) {
 	                 	pwgl.view.yRotate += 1;
 	                }
-
-	            	// Ctrl + -: zoom out
-	            	if (pwgl.pressedKeys[173]) {
-	            		pwgl.view.zTrans -= 0.2;
-	            	}
-	            	// Ctrl + +: zoom in
-	            	else if (pwgl.pressedKeys[61]) {
-	            		pwgl.view.zTrans += 0.2;
-	            	}
-            	} else {
+	          	} else {
             		var relPosY = pwgl.view.currentY / gl.viewportHeight * 100;
             		var relPosX = pwgl.view.currentX / gl.viewportWidth * 100;
             		//  Up Arrow: move view up
@@ -907,6 +900,15 @@
 	            			pwgl.view.currentX -= 0.1;
 	            		}	
             		}
+
+            		// Minus: zoom out
+	            	if (pwgl.pressedKeys[173]) {
+	            		pwgl.view.zTrans -= 0.2;
+	            	}
+	            	// Plus: zoom in
+	            	else if (pwgl.pressedKeys[61]) {
+	            		pwgl.view.zTrans += 0.2;
+	            	}
 	            }
             }
 
@@ -948,7 +950,18 @@
 
                 // Affects zoom - mouse wheel forward zooms in, mouse wheel back zooms out
                 pwgl.view.zTrans += -evt.detail / 5;
-                
+            }
+
+            function resizeHandler() {
+            	// Adjust size of canvas and viewport to new window size
+            	canvas.width = window.innerWidth;
+            	canvas.height = window.innerHeight;
+            	gl.viewportWidth = canvas.width;
+            	gl.viewportHeight = canvas.height;
+
+            	// Update viewport and perspective
+            	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+            	mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
             }
 
 
@@ -963,6 +976,60 @@
         </script>
     </head>
     <body>
+    	<header>
+    		<span>WebGL Earth</span>
+    	</header>
+
+    	<div class="top_btn" id="controls_btn" title="Click to show controls">
+    		<span>Controls</span>
+    	</div>
+
+		<div class="popup" id="controls">
+			<ul>
+				<li class="control_set"><strong class="control_type">Mouse:</strong>
+					<ul>
+						<li><span class="attr">Rotate:</span> LMB (hold) + drag cursor</li>
+						<li><span class="attr">Zoom:</span> Scroll wheel</li>
+					</ul>
+				</li>
+				<li class="control_set"><strong class="control_type">Keyboard (QUERTY):</strong>
+					<ul>
+						<li class="sub_control_set"><strong>Scene:</strong>
+							<ul>
+		    					<li><span class="attr">Move:</span> Arrow keys</li>
+		    					<li><span class="attr">Rotate:</span> Ctrl + Arrow keys</li>
+		    					<li><span class="attr">Zoom:</span> +/-</li>
+		    				</ul>
+		    			</li>
+		    			<li><strong>Satellite Orbit:</strong>
+		    				<ul>
+		    					<li><span class="attr">Radius:</span> Alt + Up/Down</li>
+		    					<li><span class="attr">Speed:</span> Alt + Left/Right</li>
+		    				</ul>
+		    			</li>
+					</ul>
+				</li>
+				<li><strong class="control_type">Touch:</strong>
+					<ul>
+						<li><span class="attr">Rotate:</span> One finger drag</li>
+						<li><span class="attr">Zoom:</span> Two finger drag left/right</li>
+					</ul>
+				</li>
+			</ul>
+		</div>
+
+		<div class="top_btn" id="info_btn" title="Click to show info">
+			<span>Info</span>	
+		</div>
+
+		<div class="popup" id="info">
+			<ul>
+				<li><span class="attr">Author:</span> 660273</li>
+				<li><span class="attr">Unit:</span> Applied Graphics and Computer Vision</li>
+				<li><span class="attr">Level:</span> 6</li>
+				<li><span class="attr">Date:</span> 25/02/2015</li>
+			</ul>
+		</div>
         <canvas id="glCanvas"></canvas>
     </body>
 </html>

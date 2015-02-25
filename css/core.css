@@ -1,0 +1,105 @@
+* {
+  margin: 0;
+  padding: 0;
+  border: none;
+  overflow:hidden;
+}
+
+body {
+  font-family: "Trebuchet MS";
+  color:white;
+}
+
+header {
+  position:absolute;
+  top:0px;
+  width:100%;
+  text-align:center;
+  z-index: 2;
+  padding-top:0.5em;
+  color:white;
+  font-size:1.5em;
+  height:40px;
+}
+
+header span {
+  border: 2px solid white;
+  border-radius:10px;
+  padding: 30px 10px 10px 10px;
+  background: rgba(0,0,139,0.4);
+}
+
+li > ul {
+  padding-left:25px;
+}
+
+.sub_control_set {
+  margin-bottom:10px;
+}
+
+.control_set {
+  margin-bottom:15px;
+}
+
+.attr {
+  display:inline-block;
+  text-align:right;
+  width:50px;
+  vertical-align: top;
+  margin-right:5px;
+}
+
+.control_type {
+  font-size:1.2em;
+}
+
+.top_btn {
+  position:absolute;
+  top:10px;
+  font-size:1.2em;
+  padding:15px;
+  border: 2px solid white;
+  border-radius:10px;
+  z-index:10;
+  background: rgba(0,0,139,0.4);
+  cursor:pointer;
+}
+
+.top_btn span {
+  pointer-events:none;
+}
+
+.popup {
+  display:none;
+  position:absolute;
+  top: 75px;
+  padding:15px;
+  border: 2px solid white;
+  border-radius: 10px;
+}
+
+#controls {
+  left:10px;
+}
+
+#info {
+  right:10px;
+}
+
+#info_btn {
+  right:10px;
+}
+
+#controls_btn {
+  left:10px;
+}
+
+@media screen and (max-width: 620px) {
+  .top_btn {
+    top:60px;
+  }
+
+  .popup {
+    top:125px;
+  }
+}
