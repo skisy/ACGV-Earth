@@ -950,7 +950,8 @@
                 evt.preventDefault();
 
                 // Affects zoom - mouse wheel forward zooms in, mouse wheel back zooms out
-                pwgl.view.zTrans += (evt.wheelDelta || -evt.detail) / 5;
+                console.log(evt.wheelDelta);
+                pwgl.view.zTrans += ((evt.wheelDelta / 100) || (-evt.detail / 5));
             }
 
             function resizeHandler() {
