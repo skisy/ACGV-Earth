@@ -1,4 +1,4 @@
-TODO
+#TODO
 
--[ ] Limit zoom
--[ ] Limit orbit radius
+[ ] Limit zoom
+[ ] Limit orbit radius
