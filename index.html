@@ -809,6 +809,8 @@
             /** Key Event Handlers **/
 
             function keyDownHandler(evt) {
+                console.log(evt.keyCode);
+                evt.preventDefault();
                 // Set value in array of index matching key code of the key pressed to true
                 pwgl.pressedKeys[evt.keyCode] = true;
                 //console.log(evt.keyCode);
@@ -817,11 +819,13 @@
             }
 
             function keyUpHandler(evt) {
+                evt.preventDefault();
                 pwgl.pressedKeys[evt.keyCode] = false;
             }
 
             // Decides which action to take based on which key has been pressed
             function keyPressHandler() {
+                evt.preventDefault();
             	// Check for Alt key held
             	if (pwgl.pressedKeys[18]) {
             		// Alt + Up: increase radius of satellite orbit
