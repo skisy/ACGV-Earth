@@ -83,43 +83,49 @@
             var gl;
             var canvas;
             var pwgl = {}; // WebGL context variables are added to this object
-            pwgl.view = {};
-            pwgl.satellite = {};
-            pwgl.satellite.texture = {};
-            pwgl.earth = {};
-            pwgl.lights = {};
             pwgl.ongoingImageLoads = [];
 
-            // Variables for interactive control - Scene Translation
-            pwgl.view.yTrans = 0;
-            pwgl.view.zTrans = 0;
-            pwgl.view.xTrans = 0;
-            // Keep track of zoom
-            pwgl.view.currentZoom = 0;
-
-            // Interactive control - Scene Rotation
-            pwgl.view.xRotate = 0;
-            pwgl.view.yRotate = 0;
-            pwgl.view.zRotate = 0;
-            pwgl.view.xOffset = 0;
-            pwgl.view.yOffset = 0;
-            pwgl.view.currentY = 0;
-            pwgl.view.currentX = 0;
-            pwgl.view.drag = 0;
+            pwgl.view = {
+            	// Scene Translation
+            	xTrans: 0,
+            	yTrans: 0,
+            	zTrans: 0,
+            	// Keep track of zoom
+            	currentZoom: 0,
+            	// Scene Rotation
+            	xRotate: 0,
+            	yRotate: 0,
+            	zRotate: 0,
+            	xOffset: 0,
+            	yOffset: 0,
+            	currentY: 0,
+            	currentX: 0,
+            	drag: 0
+            };
 
             // Lighting values
-            pwgl.lights.position = [0, 80, 0.0];
-            pwgl.lights.ambientColour = [0.3, 0.3, 0.3];
-            pwgl.lights.diffuseColour = [0.9, 0.9, 0.9];
-            pwgl.lights.specularColour = [0.3, 0.3, 0.3];
+            pwgl.lights = {
+            	position: [0, 80, 0.0],
+            	ambientColour: [0.3, 0.3, 0.3],
+            	diffuseColour: [0.9, 0.9, 0.9],
+            	specularColour: [0.3, 0.3, 0.3]
+            };
 
             // Variables required for drawing sphere correctly
             // Sphere constructed from latSlice * longSegment rectangles, each constructed from 2 triangles
             // E.g. 50 * 50 * 2 = 5000 triangles
-            pwgl.earth.latSlices = 50; 
-            pwgl.earth.longSegments = 50;
+            pwgl.earth = {
+            	latSlices: 50,
+            	longSegments: 50,
+            	radius: 5
+            };
 
-            pwgl.earth.radius = 5;
+            pwgl.satellite = {
+            	minRadius: 5.5,
+            	maxRadius: 30,
+            	scale: [0.2, 0.2, 0.2],
+            	texture: {}
+            };
 
             // Maintain array of pressed keys use for interaction
             pwgl.pressedKeys = [];
@@ -225,9 +231,6 @@
                 pwgl.satellite.z = 0.0;
                 pwgl.satellite.orbitRadius = 5.5;
 
-                // Earth sphere is of radius 5, orbit radius must be larger
-                pwgl.satellite.minRadius = 5.5;
-
                 // Satellite angle must be updated throughout orbit so same side faces earth (dark side)
                 pwgl.satellite.angle = 0;
 
@@ -236,9 +239,6 @@
 
                 // Initial orbit time set to 2 seconds
                 pwgl.satellite.orbitTime = 2000;
-
-                // Set scale of satellite
-                pwgl.satellite.scale = [0.2,0.2,0.2];
             
                 // Initialise timestamp variables for animation (to calculate position/rotation of scene objects based on animation time)
                 pwgl.animationStartTime = undefined;
@@ -250,6 +250,8 @@
                 // Setup perspective & view
                 mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
                 mat4.identity(pwgl.modelViewMatrix);
+
+                // Looks at central point of earth, set back on z scale by 25
                 mat4.lookAt([0,0,25], [0,0,0], [0,1,0], pwgl.modelViewMatrix); 
             }
 
@@ -828,7 +830,9 @@
             	if (pwgl.pressedKeys[18]) {
             		// Alt + Up: increase radius of satellite orbit
 	                if (pwgl.pressedKeys[38]) {
-	                    pwgl.satellite.orbitRadius += 0.1;
+	                	if (pwgl.satellite.orbitRadius <= pwgl.satellite.maxRadius) {
+	                   		pwgl.satellite.orbitRadius += 0.1;
+	                   	}
 	                } 
 	                // Alt + Down: decrease radius of satellite orbit
 	                else if (pwgl.pressedKeys[40]) {
