@@ -94,6 +94,8 @@
             pwgl.view.yTrans = 0;
             pwgl.view.zTrans = 0;
             pwgl.view.xTrans = 0;
+            // Keep track of zoom
+            pwgl.view.currentZoom = 0;
 
             // Interactive control - Scene Rotation
             pwgl.view.xRotate = 0;
@@ -809,10 +811,14 @@
             /** Key Event Handlers **/
 
             function keyDownHandler(evt) {
-                evt.preventDefault();
+                
+                // Prevent default behaviour for shift (highlighting text)
+                if (evt.keyCode == 16) {
+                	evt.preventDefault();
+                }
                 // Set value in array of index matching key code of the key pressed to true
                 pwgl.pressedKeys[evt.keyCode] = true;
-                console.log(evt.keyCode);
+                //console.log(evt.keyCode);
 
             }
 
@@ -872,11 +878,19 @@
                 } else if (pwgl.pressedKeys[16]) {
                     // Shift + Down: zoom out
                     if (pwgl.pressedKeys[40]) {
-                        pwgl.view.zTrans -= 0.2;
+                    	if (pwgl.view.currentZoom >= -40) {
+	                        pwgl.view.zTrans -= 0.2;
+	                        pwgl.view.currentZoom -= 0.2;
+	                    }
+                        //console.log(pwgl.view.currentZoom);
                     }
                     // Shift + Up: zoom in
                     else if (pwgl.pressedKeys[38]) {
-                        pwgl.view.zTrans += 0.2;
+                    	if (pwgl.view.currentZoom <= 12) {
+	                        pwgl.view.zTrans += 0.2;
+	                       	pwgl.view.currentZoom += 0.2;
+	                    }
+                       	//console.log(pwgl.view.currentZoom);
                     }
 	          	} else {
             		var relPosY = pwgl.view.currentY / gl.viewportHeight * 100;
@@ -948,10 +962,16 @@
 
             function wheelScrollHandler(evt) {
                 evt.preventDefault();
+                var scroll = ((evt.wheelData / 100 || -evt.detail / 5));
 
                 // Affects zoom - mouse wheel forward zooms in, mouse wheel back zooms out
-                console.log(evt.wheelDelta);
-                pwgl.view.zTrans += ((evt.wheelDelta / 100) || (-evt.detail / 5));
+                //console.log(evt.wheelDelta);
+                if ((pwgl.view.currentZoom + scroll >= -40) && (pwgl.view.currentZoom + scroll <= 12)) {
+                	pwgl.view.zTrans += scroll;
+                	pwgl.view.currentZoom += scroll;
+                }
+
+                console.log(pwgl.view.currentZoom);
             }
 
             function resizeHandler() {
@@ -964,6 +984,9 @@
             	// Update viewport and perspective
             	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
             	mat4.perspective(pwgl.fovy, gl.viewportWidth / gl.viewportHeight, 1, 100.0, pwgl.projectionMatrix);
+
+            	// Reset zoom tracker
+            	pwgl.view.currentZoom = 0;
             }
 
 
