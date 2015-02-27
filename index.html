@@ -811,11 +811,7 @@
             /** Key Event Handlers **/
 
             function keyDownHandler(evt) {
-                
-                // Prevent default behaviour for shift (highlighting text)
-                if (evt.keyCode == 16) {
-                	evt.preventDefault();
-                }
+                evt.preventDefault();
                 // Set value in array of index matching key code of the key pressed to true
                 pwgl.pressedKeys[evt.keyCode] = true;
                 //console.log(evt.keyCode);
