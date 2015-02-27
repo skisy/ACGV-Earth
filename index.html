@@ -962,7 +962,9 @@
 
             function wheelScrollHandler(evt) {
                 evt.preventDefault();
-                var scroll = ((evt.wheelData / 100 || -evt.detail / 5));
+
+                // Handle cross-browser scroll
+                var scroll = evt.wheelDelta ? evt.wheelDelta / 100 : evt.detail ? -evt.detail / 5 : 0;
 
                 // Affects zoom - mouse wheel forward zooms in, mouse wheel back zooms out
                 //console.log(evt.wheelDelta);
