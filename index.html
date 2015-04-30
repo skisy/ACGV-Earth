@@ -67,7 +67,7 @@
                 float rdotv = max(dot(reflectionVector, viewVectorEye), 0.0);
                 float specularLightWeighting = pow(rdotv, shininess);
 
-                // Calculate overal light weighting combining diffuse, specular and ambient light
+                // Calculate overall light weighting combining diffuse, specular and ambient light
                 lightWeighting = uDiffuseLightColor * diffuseLightWeighting + uSpecularLightColor * specularLightWeighting + uAmbientLightColor;
 
                 vec4 texelColor = texture2D(uSampler, vTextureCoordinates);
@@ -106,9 +106,9 @@
             // Lighting values
             pwgl.lights = {
             	position: [0, 80, 0.0],
-            	ambientColour: [0.3, 0.3, 0.3],
+            	ambientColour: [0.1, 0.1, 0.1],
             	diffuseColour: [0.9, 0.9, 0.9],
-            	specularColour: [0.3, 0.3, 0.3]
+            	specularColour: [0.4, 0.4, 0.4]
             };
 
             // Variables required for drawing sphere correctly
@@ -313,7 +313,7 @@
                 drawSatellite(pwgl.satellite.texture);
                 popModelViewMatrix();
 
-                // Update angle of satellite to face Earth in current position
+                // Update angle of satellite to face Earth in current position (2 * pi is one full rotation)
                 pwgl.satellite.angle += (currentTime - pwgl.previousFrameTimeStamp) / pwgl.satellite.orbitTime % (2 * Math.PI);
 
                 // Update position of satellite in orbit (satellite oribts on horizontal plane therefore its Y coordinate does not change)
@@ -381,13 +381,13 @@
             }
 
             function setupTextures() {
-                // Satellite has two textures; gray for side facing earth, gold for rest
+                // Satellite has two textures; grey for side facing earth, gold for rest
 
                 // Satellite gold texture
                 pwgl.satellite.texture.light = gl.createTexture();
                 loadTextureImage("img/sat-light.jpg", pwgl.satellite.texture.light);
 
-                // Satellite gray texture
+                // Satellite grey texture
                 pwgl.satellite.texture.dark = gl.createTexture();
                 loadTextureImage("img/sat-dark.jpg", pwgl.satellite.texture.dark);
 
@@ -506,50 +506,56 @@
                 var earthTextureCoordinates = [];
                 var earthVertexNormals = [];
 
+                // Earth composed of rectangles decomposed into two triangles for texture from horizontal slices and vertical segments 
                 for (var slice=0; slice<=pwgl.earth.latSlices; slice++) {
+                    // Get initial theta angle based on number of slices
+                    // This angle is required to calculate where the slice (latitude) meets the sphere boundary, giving y coordinate
                     var theta = slice * Math.PI / pwgl.earth.latSlices;
-                    var cosTheta = Math.cos(theta);
-                    var sinTheta = Math.sin(theta);
-
-                    for (var segment=0;segment<=pwgl.earth.longSegments; segment++) {
+                    var cos_theta = Math.cos(theta);
+                    var sin_theta = Math.sin(theta);
+                    
+                    for (var segment=0; segment<=pwgl.earth.longSegments; segment++) {
+                        // Calculate phi angle to get x and z coordinates
                         var phi = segment * 2 * Math.PI / pwgl.earth.longSegments;
-                        var cosPhi = Math.cos(phi);
-                        var sinPhi = Math.sin(phi);
-                        var x = cosPhi * sinTheta;
-                        var y = cosTheta;
-                        var z = sinPhi * sinTheta;
+                        var cos_phi = Math.cos(phi);
+                        var sin_phi = Math.sin(phi);
+                        var x = cos_phi * sin_theta;
+                        var y = cos_theta;
+                        var z = sin_phi * sin_theta;
+
+                        // Calculate texture coordinates
                         var u = 1 - segment / pwgl.earth.longSegments;
                         var v = 1 - slice / pwgl.earth.latSlices;
 
-                        // Push position coordinates to position data array for buffer
+                        // Push position coordinates to position data array for buffer - positions must be multiplied by radius to set correct size of sphere
                         earthVertexPosition.push(pwgl.earth.radius * x);
                         earthVertexPosition.push(pwgl.earth.radius * y);
                         earthVertexPosition.push(pwgl.earth.radius * z);
+
+                        // Push coordinates for texture to apply to data array
+                        earthTextureCoordinates.push(u);
+                        earthTextureCoordinates.push(v);
 
                         // Push vertex normals to data array
                         earthVertexNormals.push(x);
                         earthVertexNormals.push(y);
                         earthVertexNormals.push(z);
 
-                        // Push coordinates for texture to apply to data array
-                        earthTextureCoordinates.push(u);
-                        earthTextureCoordinates.push(v);
-
-                        // Create vertex indices
+                        // Create vertex indices (should not be repeated an extra time as with values, they are needed to accomplish overlap so texture wraps fully around)
                         if (slice != pwgl.earth.latSlices && segment != pwgl.earth.longSegments) {
-                            var first = segment + ((pwgl.earth.longSegments + 1) * slice);
-                            var second = pwgl.earth.longSegments + first + 1;
+                            var v1 = segment + ((pwgl.earth.longSegments + 1) * slice);
+                            var v2 = pwgl.earth.longSegments + v1 + 1;
 
                             // Push vertex indices to data array
                             // First triangle
-                            earthVertexIndices.push(first);
-                            earthVertexIndices.push(second);
-                            earthVertexIndices.push(first + 1);
+                            earthVertexIndices.push(v1);
+                            earthVertexIndices.push(v2);
+                            earthVertexIndices.push(v1 + 1);
 
                             // Second triangle
-                            earthVertexIndices.push(second);
-                            earthVertexIndices.push(second + 1);
-                            earthVertexIndices.push(first + 1);
+                            earthVertexIndices.push(v2);
+                            earthVertexIndices.push(v2 + 1);
+                            earthVertexIndices.push(v1 + 1);
                         }
                     }
                 }
